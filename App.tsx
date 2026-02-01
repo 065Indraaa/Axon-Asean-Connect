@@ -28,7 +28,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const storedSk = localStorage.getItem('axon_sk');
     if (storedSk) {
-        // Auto login if key exists
+        // Auto login if key exists locally to speed up UX
         handleLogin('auto');
     }
   }, []);
@@ -56,6 +56,7 @@ const App: React.FC = () => {
       let email: string | undefined;
       let twitterHandle: string | undefined;
       let useDemoMode = false;
+      let firebaseUid: string | undefined;
       
       // REAL AUTHENTICATION FLOW
       if (provider === 'google' || provider === 'twitter') {
@@ -67,6 +68,8 @@ const App: React.FC = () => {
                       : await authService.signInWithTwitter();
                   
                   email = firebaseUser.email || undefined;
+                  firebaseUid = firebaseUser.uid;
+                  
                   if (provider === 'twitter') {
                       twitterHandle = firebaseUser.displayName || '@user';
                   }
@@ -97,14 +100,26 @@ const App: React.FC = () => {
               await new Promise(r => setTimeout(r, 800));
               if (provider === 'google') email = 'privacy.user@gmail.com';
               if (provider === 'twitter') twitterHandle = '@solana_priv';
+              // Demo mode generates random UID or uses a fixed one for consistent demoing
+              firebaseUid = 'demo-user-123';
           }
       }
 
-      setLoginStep('Decrypting local vault...');
+      setLoginStep('Syncing encrypted vault...');
       if (provider !== 'auto') await new Promise(r => setTimeout(r, 600));
 
-      // Get or Create Solana Wallet (Privacy Preserved: Client Side Only)
-      const { keypair, isNew } = solanaService.getOrGenerateWallet();
+      // Get or Create Solana Wallet
+      let keypair: web3.Keypair;
+      
+      if (firebaseUid && provider !== 'auto') {
+          // If we have a cloud identity, ensure we get the SAME wallet
+          keypair = await solanaService.getOrSyncWallet(firebaseUid);
+      } else {
+          // Fallback / Auto-login from local storage / Demo
+          const result = solanaService.getOrGenerateWalletLocal();
+          keypair = result.keypair;
+      }
+
       const pubKeyStr = keypair.publicKey.toString();
       
       setUser({
@@ -130,8 +145,9 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
       await authService.logout();
-      // We do NOT clear localStorage automatically on logout to prevent key loss 
-      // unless user explicitly wipes data in Settings.
+      // Remove local key to prevent account leakage on shared devices.
+      // Next login will fetch fresh from cloud based on user ID.
+      localStorage.removeItem('axon_sk');
       setUser(null);
       setView(AppView.LOGIN);
   };

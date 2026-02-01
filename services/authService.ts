@@ -3,10 +3,10 @@ import {
   getAuth, 
   signInWithPopup, 
   GoogleAuthProvider, 
-  TwitterAuthProvider,
-  signOut as firebaseSignOut,
-  User
+  TwitterAuthProvider, 
+  signOut 
 } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
 // ------------------------------------------------------------------
 // CONFIGURATION
@@ -25,10 +25,13 @@ const firebaseConfig = {
 // Initialize Firebase
 let auth: any;
 let app: any;
+let db: any;
 
 try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
+    db = getFirestore(app);
+    console.log("🔥 Firebase initialized successfully. DB Connection:", !!db);
 } catch (e) {
     console.warn("Firebase Init Failed. Check configuration.", e);
 }
@@ -38,14 +41,16 @@ export const isConfigured = () => {
     return !!auth;
 };
 
-export const signInWithGoogle = async (): Promise<User> => {
+export const getDb = () => db;
+
+export const signInWithGoogle = async (): Promise<any> => {
   if (!auth) throw new Error("Firebase not initialized");
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   return result.user;
 };
 
-export const signInWithTwitter = async (): Promise<User> => {
+export const signInWithTwitter = async (): Promise<any> => {
   if (!auth) throw new Error("Firebase not initialized");
   const provider = new TwitterAuthProvider();
   const result = await signInWithPopup(auth, provider);
@@ -54,6 +59,6 @@ export const signInWithTwitter = async (): Promise<User> => {
 
 export const logout = async () => {
     if (auth) {
-        await firebaseSignOut(auth);
+        await signOut(auth);
     }
 };

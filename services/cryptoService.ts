@@ -1,6 +1,8 @@
 import * as web3 from '@solana/web3.js';
 import * as splToken from '@solana/spl-token';
 import bs58 from 'bs58';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getDb } from './authService';
 import { Transaction, Currency } from '../types';
 
 // Connect to Devnet (Privacy Note: In production, use a private RPC endpoint like Helius to prevent IP leakage to public nodes)
@@ -15,7 +17,80 @@ export const SOLANA_EXPLORER_URL = "https://solana.fm/tx";
 
 // --- Wallet Management ---
 
-export const getOrGenerateWallet = (): { keypair: web3.Keypair, isNew: boolean } => {
+/**
+ * Gets the wallet associated with the authenticated user ID.
+ * Prioritizes Cloud Data (Account-based) over LocalStorage (Device-based).
+ */
+export const getOrSyncWallet = async (userId: string): Promise<web3.Keypair> => {
+  const db = getDb();
+  let secretKeyString = '';
+  
+  if (db && userId) {
+    try {
+      const userDocRef = doc(db, "users", userId);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        if (data.encryptedKey) {
+          // 1. Found in Cloud -> This is the source of truth for this Account.
+          console.log("✅ Wallet found in Firebase. Syncing to device...");
+          secretKeyString = data.encryptedKey;
+          
+          // Force sync cloud key to local storage to ensure device matches account
+          localStorage.setItem('axon_sk', secretKeyString);
+        }
+      } 
+      
+      // 2. Not found in Cloud? 
+      if (!secretKeyString) {
+        console.log("☁️ New User or Guest Migration. Checking local...");
+        // Check if we have a local guest wallet to migrate
+        const storedKey = localStorage.getItem('axon_sk');
+        
+        if (storedKey) {
+          console.log("📦 Migrating Local Guest Wallet to Cloud Account...");
+          secretKeyString = storedKey;
+        } else {
+          console.log("🆕 Generating brand new wallet for Account...");
+          const kp = web3.Keypair.generate();
+          secretKeyString = bs58.encode(kp.secretKey);
+          localStorage.setItem('axon_sk', secretKeyString);
+        }
+
+        // 3. Save/Sync to Cloud (Persist Account Data)
+        await setDoc(userDocRef, {
+          walletAddress: web3.Keypair.fromSecretKey(bs58.decode(secretKeyString)).publicKey.toString(),
+          encryptedKey: secretKeyString, 
+          lastLogin: new Date().toISOString()
+        }, { merge: true });
+        console.log("💾 Wallet saved to Firebase!");
+      }
+
+    } catch (e) {
+      console.error("Cloud sync failed:", e);
+      // Fallback only if absolutely necessary, but warn user
+    }
+  }
+
+  // Fallback: If still no key (e.g. DB error or Offline), check local
+  if (!secretKeyString) {
+     const storedKey = localStorage.getItem('axon_sk');
+     if (storedKey) {
+       secretKeyString = storedKey;
+     } else {
+       // Only generate local if we aren't enforcing cloud strictness, or as last resort
+       const kp = web3.Keypair.generate();
+       secretKeyString = bs58.encode(kp.secretKey);
+       localStorage.setItem('axon_sk', secretKeyString);
+     }
+  }
+
+  return web3.Keypair.fromSecretKey(bs58.decode(secretKeyString));
+};
+
+// Fallback for demo mode without auth
+export const getOrGenerateWalletLocal = (): { keypair: web3.Keypair, isNew: boolean } => {
   const storedKey = localStorage.getItem('axon_sk');
   if (storedKey) {
     try {
@@ -26,7 +101,6 @@ export const getOrGenerateWallet = (): { keypair: web3.Keypair, isNew: boolean }
     }
   }
   
-  // Generate new privacy-preserving wallet (Client Side Only)
   const keypair = web3.Keypair.generate();
   localStorage.setItem('axon_sk', bs58.encode(keypair.secretKey));
   return { keypair, isNew: true };
