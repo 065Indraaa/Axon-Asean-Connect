@@ -1,0 +1,7 @@
+{
+  "name": "Axon Privacy",
+  "description": "A privacy-first Solana wallet and payment interface featuring Axon Snap and seamless QRIS integration.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
