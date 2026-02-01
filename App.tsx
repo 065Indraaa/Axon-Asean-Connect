@@ -28,7 +28,9 @@ const App: React.FC = () => {
   useEffect(() => {
     const storedSk = localStorage.getItem('axon_sk');
     if (storedSk) {
-        // Auto login if key exists locally to speed up UX
+        // Only auto-login if explicitly requested or previous session exists
+        // NOTE: In a production app with strict security, you might want to disable 
+        // auto-login entirely or require a PIN to decrypt the local key.
         handleLogin('auto');
     }
   }, []);
@@ -53,6 +55,14 @@ const App: React.FC = () => {
     setLoginStep('Securing environment...');
 
     try {
+      // 1. CLEAN SLATE PROTOCOL
+      // If we are starting a NEW authentication flow (not auto-login),
+      // we must wipe any existing local wallet to ensure we don't accidentally
+      // attach an old guest wallet to a new user account.
+      if (provider !== 'auto') {
+          localStorage.removeItem('axon_sk');
+      }
+
       let email: string | undefined;
       let twitterHandle: string | undefined;
       let useDemoMode = false;
@@ -100,8 +110,8 @@ const App: React.FC = () => {
               await new Promise(r => setTimeout(r, 800));
               if (provider === 'google') email = 'privacy.user@gmail.com';
               if (provider === 'twitter') twitterHandle = '@solana_priv';
-              // Demo mode generates random UID or uses a fixed one for consistent demoing
-              firebaseUid = 'demo-user-123';
+              // Demo mode uses a fixed ID for demo consistency, or random for uniqueness
+              firebaseUid = 'demo-user-123'; 
           }
       }
 
@@ -112,10 +122,12 @@ const App: React.FC = () => {
       let keypair: web3.Keypair;
       
       if (firebaseUid && provider !== 'auto') {
-          // If we have a cloud identity, ensure we get the SAME wallet
+          // STRICT MODE: Fetch the wallet specific to this Cloud User ID.
+          // This will ignore local storage and strictly fetch from Firebase or create new.
           keypair = await solanaService.getOrSyncWallet(firebaseUid);
       } else {
-          // Fallback / Auto-login from local storage / Demo
+          // Fallback / Auto-login from local storage / Guest Mode
+          // This retrieves whatever is on the device.
           const result = solanaService.getOrGenerateWalletLocal();
           keypair = result.keypair;
       }
