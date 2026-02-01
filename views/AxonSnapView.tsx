@@ -22,7 +22,7 @@ export const AxonSnapView: React.FC<AxonSnapViewProps> = ({ onBack, user, solBal
   const handleCreate = async () => {
     if (!amount) return;
     const val = parseFloat(amount);
-    if (val > solBalance) return;
+    if (val <= 0 || val > solBalance) return;
 
     setLoading(true);
     try {
@@ -50,9 +50,27 @@ export const AxonSnapView: React.FC<AxonSnapViewProps> = ({ onBack, user, solBal
     }
   };
 
+  const copyPrivateKey = async () => {
+    if (!createdSnap) return;
+    try {
+      await navigator.clipboard.writeText(createdSnap.tempPrivateKey);
+      // Simple feedback
+      const button = document.activeElement as HTMLButtonElement;
+      if (button) {
+        const originalText = button.textContent;
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+          button.textContent = originalText;
+        }, 1500);
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   if (createdSnap) {
     return (
-      <div className="h-full flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-300 pb-20">
+      <div className="h-screen flex flex-col items-center justify-center space-y-8 animate-in fade-in zoom-in duration-300 pb-28 px-4">
         <div className="text-center space-y-2">
           <div className="relative">
              <div className="absolute inset-0 bg-white/20 blur-xl rounded-full"></div>
@@ -64,32 +82,41 @@ export const AxonSnapView: React.FC<AxonSnapViewProps> = ({ onBack, user, solBal
           <p className="text-secondary max-w-xs mx-auto">Funds have been moved to a temporary burner wallet.</p>
         </div>
 
-        <Card className="w-full max-w-xs bg-[#0F0F0F] border-dashed border-2 border-neutral-700 relative overflow-hidden">
-           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+        <Card className="w-full max-w-sm bg-[#0F0F0F] border-dashed border-2 border-neutral-700 relative overflow-hidden">
+           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-pulse"></div>
            <div className="flex flex-col items-center p-4 space-y-4">
              <div className="bg-white p-3 rounded-xl shadow-lg">
-                <QRCodeSVG value={createdSnap.tempPrivateKey} size={160} />
+                <QRCodeSVG value={createdSnap.tempPrivateKey} size={140} />
              </div>
              <div className="w-full text-center">
                <p className="text-xs text-secondary mb-2 uppercase tracking-wide">Snap Private Key</p>
                <div className="bg-black/80 border border-white/10 p-3 rounded-lg text-[10px] font-mono break-all text-neutral-400 select-all">
                  {createdSnap.tempPrivateKey}
                </div>
+               <button 
+                 onClick={copyPrivateKey}
+                 className="mt-2 text-xs text-white/60 hover:text-white transition-colors active:scale-95"
+               >
+                 Tap to copy
+               </button>
              </div>
            </div>
         </Card>
 
-        <Button fullWidth onClick={() => setCreatedSnap(null)}>Create Another</Button>
+        <div className="flex gap-3 w-full max-w-sm">
+          <Button variant="secondary" fullWidth onClick={() => setCreatedSnap(null)}>Create Another</Button>
+          <Button variant="outline" fullWidth onClick={onBack}>Done</Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="pb-24 pt-4">
+    <div className="pb-28 pt-4">
       <Header title="Axon Snap (SOL)" onBack={onBack} />
       <div className="space-y-6 mt-4">
         <div className="p-6 bg-gradient-to-br from-neutral-800 to-neutral-900 rounded-3xl border border-white/5 relative overflow-hidden">
-          <Zap className="absolute top-4 right-4 w-24 h-24 text-white/5 rotate-12" />
+          <Zap className="absolute top-4 right-4 w-20 h-20 text-white/5 rotate-12" />
           <p className="text-sm text-secondary mb-1">Available to Snap</p>
           <div className="flex items-baseline gap-2">
              <p className="text-3xl font-mono font-bold text-white">{solBalance.toFixed(4)}</p>
@@ -104,11 +131,19 @@ export const AxonSnapView: React.FC<AxonSnapViewProps> = ({ onBack, user, solBal
             placeholder="0.0" 
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className="text-2xl font-mono"
+            className="text-xl font-mono"
+            step="0.0001"
+            min="0"
+            max={solBalance.toString()}
           />
           <div className="flex gap-2">
              {[0.1, 0.5, 1.0].map(val => (
-                 <button key={val} onClick={() => setAmount(val.toString())} className="flex-1 py-2 bg-surface border border-border rounded-lg text-xs hover:bg-neutral-800 transition-colors">
+                 <button 
+                   key={val} 
+                   onClick={() => setAmount(val.toString())} 
+                   className="flex-1 py-2 bg-surface border border-border rounded-lg text-xs hover:bg-neutral-800 transition-colors active:scale-95"
+                   disabled={val > solBalance}
+                 >
                      {val} SOL
                  </button>
              ))}
@@ -118,7 +153,12 @@ export const AxonSnapView: React.FC<AxonSnapViewProps> = ({ onBack, user, solBal
           </p>
         </div>
 
-        <Button fullWidth onClick={handleCreate} isLoading={loading} disabled={!amount || parseFloat(amount) > solBalance}>
+        <Button 
+          fullWidth 
+          onClick={handleCreate} 
+          isLoading={loading} 
+          disabled={!amount || parseFloat(amount) <= 0 || parseFloat(amount) > solBalance}
+        >
           Generate Snap Link
         </Button>
       </div>

@@ -37,7 +37,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onBack }) => {
     };
 
     return (
-        <div className="pb-24 pt-4 relative">
+        <div className="pb-28 pt-4 relative">
              <Header title="Private Ledger" onBack={onBack} />
              
              {loading ? (
@@ -48,14 +48,20 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onBack }) => {
              ) : (
                 <div className="space-y-3 mt-4">
                 {history.map((tx) => (
-                    <Card key={tx.id} className="flex justify-between items-center cursor-pointer hover:bg-neutral-800 transition-colors" onClick={() => setSelectedTx(tx)}>
+                    <Card 
+                      key={tx.id} 
+                      className="flex justify-between items-center cursor-pointer hover:bg-neutral-800 transition-colors active:scale-[0.98]" 
+                      onClick={() => setSelectedTx(tx)}
+                    >
                     <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-full ${tx.status === 'failed' ? 'bg-red-500/10' : 'bg-white/5'}`}>
                            {tx.status === 'failed' ? <XCircle className="w-4 h-4 text-red-500"/> : <ArrowUpRight className="w-4 h-4 text-white"/>}
                         </div>
                         <div className="overflow-hidden">
                             <p className="font-medium text-sm text-white">Transfer</p>
-                            <p className="text-[10px] text-secondary font-mono">{tx.signature?.slice(0,8)}...{tx.signature?.slice(-8)}</p>
+                            <p className="text-[10px] text-secondary font-mono truncate max-w-[120px]">
+                              {tx.signature?.slice(0,8)}...{tx.signature?.slice(-8)}
+                            </p>
                         </div>
                     </div>
                     <div className="text-right">
@@ -73,13 +79,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onBack }) => {
              {/* Privacy Inspector Modal */}
              {selectedTx && (
                  <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-                     <div className="w-full max-w-md bg-[#111] border-t sm:border border-border rounded-t-3xl sm:rounded-2xl p-6 space-y-6 animate-in slide-in-from-bottom-10">
+                     <div className="w-full max-w-md bg-[#111] border-t sm:border border-border rounded-t-3xl sm:rounded-2xl p-6 space-y-6 animate-in slide-in-from-bottom-10 max-h-[90vh] overflow-y-auto">
                          <div className="flex items-center justify-between">
                              <h3 className="text-lg font-bold text-white flex items-center gap-2">
                                 <Shield className="w-5 h-5 text-green-400" />
                                 Privacy Inspector
                              </h3>
-                             <button onClick={() => setSelectedTx(null)} className="p-2 hover:bg-white/10 rounded-full">
+                             <button 
+                               onClick={() => setSelectedTx(null)} 
+                               className="p-2 hover:bg-white/10 rounded-full active:scale-95 transition-all"
+                             >
                                  <X className="w-5 h-5 text-secondary" />
                              </button>
                          </div>
@@ -87,7 +96,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onBack }) => {
                          <div className="space-y-4">
                              <div className="bg-black border border-border rounded-xl p-4">
                                  <p className="text-[10px] text-secondary uppercase tracking-widest mb-2">Signature Hash</p>
-                                 <p className="font-mono text-xs text-white break-all">{selectedTx.signature}</p>
+                                 <p className="font-mono text-xs text-white break-all select-all">{selectedTx.signature}</p>
                              </div>
                              
                              <div className="grid grid-cols-2 gap-4">
@@ -112,7 +121,11 @@ export const HistoryView: React.FC<HistoryViewProps> = ({ user, onBack }) => {
 
                          <div className="flex gap-3">
                              <Button variant="secondary" fullWidth onClick={() => setSelectedTx(null)}>Close</Button>
-                             <Button variant="outline" fullWidth onClick={() => openExternalExplorer(selectedTx.signature || '')}>
+                             <Button 
+                               variant="outline" 
+                               fullWidth 
+                               onClick={() => openExternalExplorer(selectedTx.signature || '')}
+                             >
                                 <ExternalLink className="w-4 h-4 mr-2" />
                                 Public View
                              </Button>

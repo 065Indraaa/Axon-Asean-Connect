@@ -38,7 +38,7 @@ export const getOrSyncWallet = async (userId: string): Promise<web3.Keypair> => 
       const data = userDoc.data();
       if (data.encryptedKey) {
         // 1. Found in Cloud -> Retrieve the account's specific wallet
-        console.log("✅ Identity verified. Retrieving cloud wallet...");
+        console.log("✅ Identity verified. Retrieving cloud wallet for user:", userId);
         secretKeyString = data.encryptedKey;
       }
     } 
@@ -47,23 +47,32 @@ export const getOrSyncWallet = async (userId: string): Promise<web3.Keypair> => 
     // We EXPLICITLY do not check localStorage here to prevent "Guest Wallet" from
     // accidentally becoming the account wallet if the device was shared.
     if (!secretKeyString) {
-      console.log("🆕 New Account detected. Generating fresh wallet...");
+      console.log("🆕 New Account detected. Generating fresh wallet for user:", userId);
       
       const kp = web3.Keypair.generate();
       secretKeyString = bs58.encode(kp.secretKey);
 
-      // 3. Save new wallet to Cloud immediately
+      // 3. Save new wallet to Cloud immediately with user-specific data
       await setDoc(userDocRef, {
+        userId: userId, // Store the user ID for reference
         walletAddress: kp.publicKey.toString(),
         encryptedKey: secretKeyString, 
         createdAt: new Date().toISOString(),
         lastLogin: new Date().toISOString()
       }, { merge: true });
-      console.log("💾 Wallet bound to account and saved to Firebase!");
+      console.log("💾 Wallet bound to account and saved to Firebase for user:", userId);
+    } else {
+      // Update last login for existing users
+      await setDoc(userDocRef, {
+        lastLogin: new Date().toISOString()
+      }, { merge: true });
     }
 
     // 4. Update Local Session (Only after we confirmed the correct key)
-    localStorage.setItem('axon_sk', secretKeyString);
+    // Store with user-specific key to prevent cross-contamination
+    localStorage.setItem(`axon_sk_${userId}`, secretKeyString);
+    // Also store current user ID for auto-login
+    localStorage.setItem('axon_current_user', userId);
 
   } catch (e) {
     console.error("Cloud sync critical failure:", e);
@@ -75,6 +84,21 @@ export const getOrSyncWallet = async (userId: string): Promise<web3.Keypair> => 
 
 // Fallback for unauthenticated / guest / demo mode only
 export const getOrGenerateWalletLocal = (): { keypair: web3.Keypair, isNew: boolean } => {
+  // Check if there's a current user and try to get their specific wallet first
+  const currentUser = localStorage.getItem('axon_current_user');
+  if (currentUser) {
+    const userSpecificKey = localStorage.getItem(`axon_sk_${currentUser}`);
+    if (userSpecificKey) {
+      try {
+        const secretKey = bs58.decode(userSpecificKey);
+        return { keypair: web3.Keypair.fromSecretKey(secretKey), isNew: false };
+      } catch (e) {
+        console.error("Corrupt user-specific key found, will generate new.");
+      }
+    }
+  }
+
+  // Fallback to generic key for guest mode
   const storedKey = localStorage.getItem('axon_sk');
   if (storedKey) {
     try {
@@ -91,6 +115,14 @@ export const getOrGenerateWalletLocal = (): { keypair: web3.Keypair, isNew: bool
 };
 
 export const exportPrivateKey = (): string => {
+  // Try to get current user's specific key first
+  const currentUser = localStorage.getItem('axon_current_user');
+  if (currentUser) {
+    const userSpecificKey = localStorage.getItem(`axon_sk_${currentUser}`);
+    if (userSpecificKey) return userSpecificKey;
+  }
+  
+  // Fallback to generic key
   return localStorage.getItem('axon_sk') || '';
 };
 

@@ -17,7 +17,7 @@ export const NavBar: React.FC<NavBarProps> = ({ currentView, onChangeView }) => 
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border pt-2 pb-6 px-6">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#050505] border-t border-[#262626] pt-2 pb-safe px-4 safe-area-inset-bottom">
       <div className="max-w-md mx-auto flex items-center justify-between">
         {navItems.map((item) => {
           const isActive = currentView === item.view;
@@ -28,9 +28,9 @@ export const NavBar: React.FC<NavBarProps> = ({ currentView, onChangeView }) => 
                <button
                 key={item.label}
                 onClick={() => onChangeView(item.view)}
-                className="relative -top-5"
+                className="relative -top-4 active:scale-95 transition-transform"
                >
-                 <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                 <div className="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(255,255,255,0.2)] active:shadow-[0_0_30px_rgba(255,255,255,0.3)]">
                    <Icon className="w-6 h-6 text-black" />
                  </div>
                </button>
@@ -41,7 +41,7 @@ export const NavBar: React.FC<NavBarProps> = ({ currentView, onChangeView }) => 
             <button
               key={item.label}
               onClick={() => onChangeView(item.view)}
-              className={`flex flex-col items-center gap-1 transition-colors ${isActive ? 'text-white' : 'text-neutral-600'}`}
+              className={`flex flex-col items-center gap-1 transition-all active:scale-95 p-2 rounded-lg ${isActive ? 'text-white bg-white/5' : 'text-neutral-600'}`}
             >
               <Icon className="w-5 h-5" />
               <span className="text-[10px] font-medium">{item.label}</span>

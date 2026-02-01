@@ -16,7 +16,7 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props 
 }) => {
-  const baseStyles = "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed h-12 px-6 text-sm tracking-wide";
+  const baseStyles = "inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed h-12 px-6 text-sm tracking-wide touch-manipulation";
   
   const variants = {
     primary: "bg-white text-black hover:bg-gray-200 border border-transparent shadow-[0_0_15px_rgba(255,255,255,0.1)]",
@@ -50,7 +50,7 @@ export const Input: React.FC<InputProps> = ({ label, error, rightElement, classN
       {label && <label className="block text-xs font-medium text-secondary uppercase tracking-wider">{label}</label>}
       <div className="relative">
         <input 
-          className={`w-full bg-surface text-white border border-border rounded-xl px-4 py-3.5 focus:outline-none focus:border-white/50 focus:ring-1 focus:ring-white/20 transition-all placeholder:text-neutral-700 ${className}`}
+          className={`w-full bg-surface text-white border border-border rounded-xl px-4 py-3.5 focus:outline-none focus:border-white/50 focus:ring-1 focus:ring-white/20 transition-all placeholder:text-neutral-700 touch-manipulation ${className}`}
           {...props}
         />
         {rightElement && (

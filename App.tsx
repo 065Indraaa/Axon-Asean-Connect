@@ -26,12 +26,13 @@ const App: React.FC = () => {
 
   // Initialize Wallet from LocalStorage
   useEffect(() => {
-    const storedSk = localStorage.getItem('axon_sk');
-    if (storedSk) {
-        // Only auto-login if explicitly requested or previous session exists
-        // NOTE: In a production app with strict security, you might want to disable 
-        // auto-login entirely or require a PIN to decrypt the local key.
-        handleLogin('auto');
+    const currentUser = localStorage.getItem('axon_current_user');
+    if (currentUser) {
+        const userSpecificKey = localStorage.getItem(`axon_sk_${currentUser}`);
+        if (userSpecificKey) {
+            // Only auto-login if we have a user-specific key
+            handleLogin('auto');
+        }
     }
   }, []);
 
@@ -55,12 +56,15 @@ const App: React.FC = () => {
     setLoginStep('Securing environment...');
 
     try {
-      // 1. CLEAN SLATE PROTOCOL
-      // If we are starting a NEW authentication flow (not auto-login),
-      // we must wipe any existing local wallet to ensure we don't accidentally
-      // attach an old guest wallet to a new user account.
+      // 1. CLEAN SLATE PROTOCOL - Wipe existing wallet for new authentication
       if (provider !== 'auto') {
+          // Remove all wallet-related data to ensure clean login
+          const currentUser = localStorage.getItem('axon_current_user');
+          if (currentUser) {
+              localStorage.removeItem(`axon_sk_${currentUser}`);
+          }
           localStorage.removeItem('axon_sk');
+          localStorage.removeItem('axon_current_user');
       }
 
       let email: string | undefined;
@@ -108,26 +112,28 @@ const App: React.FC = () => {
           if (useDemoMode) {
               setLoginStep('Establishing secure session...');
               await new Promise(r => setTimeout(r, 800));
-              if (provider === 'google') email = 'privacy.user@gmail.com';
-              if (provider === 'twitter') twitterHandle = '@solana_priv';
-              // Demo mode uses a fixed ID for demo consistency, or random for uniqueness
-              firebaseUid = 'demo-user-123'; 
+              if (provider === 'google') {
+                  email = 'privacy.user@gmail.com';
+                  firebaseUid = `demo-google-${Date.now()}`;
+              }
+              if (provider === 'twitter') {
+                  twitterHandle = '@solana_priv';
+                  firebaseUid = `demo-twitter-${Date.now()}`;
+              }
           }
       }
 
       setLoginStep('Syncing encrypted vault...');
       if (provider !== 'auto') await new Promise(r => setTimeout(r, 600));
 
-      // Get or Create Solana Wallet
+      // Get or Create Solana Wallet - STRICT USER ISOLATION
       let keypair: web3.Keypair;
       
       if (firebaseUid && provider !== 'auto') {
-          // STRICT MODE: Fetch the wallet specific to this Cloud User ID.
-          // This will ignore local storage and strictly fetch from Firebase or create new.
+          // STRICT MODE: Each user gets their own unique wallet based on their Firebase UID
           keypair = await solanaService.getOrSyncWallet(firebaseUid);
       } else {
-          // Fallback / Auto-login from local storage / Guest Mode
-          // This retrieves whatever is on the device.
+          // Fallback for auto-login from local storage
           const result = solanaService.getOrGenerateWalletLocal();
           keypair = result.keypair;
       }
@@ -144,7 +150,7 @@ const App: React.FC = () => {
       
       // Initial Balance Check
       const bal = await solanaService.getSolBalance(keypair.publicKey);
-      setBalances({ sol: bal, idrx: 0 }); // Default IDRX 0, privacy first
+      setBalances({ sol: bal, idrx: 0 });
 
       setView(AppView.DASHBOARD);
     } catch (e) {
@@ -157,9 +163,14 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
       await authService.logout();
-      // Remove local key to prevent account leakage on shared devices.
-      // Next login will fetch fresh from cloud based on user ID.
+      // Remove user-specific keys to prevent account leakage on shared devices
+      const currentUser = localStorage.getItem('axon_current_user');
+      if (currentUser) {
+          localStorage.removeItem(`axon_sk_${currentUser}`);
+      }
+      // Also remove generic keys and current user reference
       localStorage.removeItem('axon_sk');
+      localStorage.removeItem('axon_current_user');
       setUser(null);
       setView(AppView.LOGIN);
   };
@@ -217,9 +228,9 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background text-primary font-sans selection:bg-white/20">
-      <div className="max-w-md mx-auto min-h-screen bg-[#050505] shadow-2xl relative border-x border-[#262626]">
-        <div className="h-full px-4 pt-4 relative">
+    <div className="min-h-screen bg-background text-primary font-sans selection:bg-white/20 overflow-x-hidden">
+      <div className="w-full max-w-md mx-auto min-h-screen bg-[#050505] shadow-2xl relative">
+        <div className="h-full px-4 pt-2 pb-safe relative">
           {renderContent()}
         </div>
         
